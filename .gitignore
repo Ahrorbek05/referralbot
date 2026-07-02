@@ -1,0 +1,6 @@
+node_modules/
+.env
+referral.db
+referral.db-journal
+referral.db-wal
+referral.db-shm
