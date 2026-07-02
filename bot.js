@@ -12,6 +12,7 @@ const {
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const BOT_USERNAME = process.env.BOT_USERNAME;
+const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME; // masalan: @wegweiserclub (kanal username, @ bilan)
 const REWARD_THRESHOLD = parseInt(process.env.REWARD_THRESHOLD || "5", 10);
 const ADMIN_IDS = (process.env.ADMIN_IDS || "")
   .split(",")
@@ -45,6 +46,87 @@ function getReferralLink(telegramId) {
   return `https://t.me/${BOT_USERNAME}?start=${telegramId}`;
 }
 
+// Foydalanuvchi kanalga a'zo bo'lган-bo'lmaganini tekshirish
+async function isSubscribed(ctx, telegramId) {
+  if (!CHANNEL_USERNAME) return true; // kanal sozlanmagan bo'lsa, tekshiruvsiz o'tkazamiz
+  try {
+    const member = await ctx.telegram.getChatMember(
+      CHANNEL_USERNAME,
+      telegramId,
+    );
+    return ["member", "administrator", "creator"].includes(member.status);
+  } catch (e) {
+    console.error(
+      "Obunani tekshirishda xatolik (bot kanalda admin emasmi?):",
+      e.message,
+    );
+    return true; // xato bo'lsa, foydalanuvchini bloklab qo'ymaslik uchun o'tkazib yuboramiz
+  }
+}
+
+function subscribeKeyboard() {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.url(
+        "📢 Kanalga qo'shilish",
+        `https://t.me/${CHANNEL_USERNAME.replace("@", "")}`,
+      ),
+    ],
+    [Markup.button.callback("✅ Tekshirish", "check_sub")],
+  ]);
+}
+
+// Yangi foydalanuvchini ro'yxatdan o'tkazish va referalni hisoblash (faqat bir marta ishlaydi)
+async function registerUserIfNew(
+  ctx,
+  telegramId,
+  username,
+  firstName,
+  payload,
+) {
+  let user = getUser(telegramId);
+  if (user) return; // allaqachon ro'yxatdan o'tgan
+
+  let referredBy = null;
+  if (payload && !isNaN(Number(payload)) && Number(payload) !== telegramId) {
+    const referrer = getUser(Number(payload));
+    if (referrer) referredBy = Number(payload);
+  }
+
+  createUser({ telegramId, username, firstName, referredBy });
+
+  if (referredBy) {
+    incrementReferralCount(referredBy);
+    logReferralEvent(referredBy, telegramId);
+
+    const referrerData = getUser(referredBy);
+    try {
+      await ctx.telegram.sendMessage(
+        referredBy,
+        `🎉 Tabriklaymiz! Sizning havolangiz orqali yangi o'quvchi qo'shildi.\n` +
+          `Jami takliflaringiz: ${referrerData.referral_count}`,
+      );
+    } catch (e) {}
+
+    if (
+      referrerData.referral_count >= REWARD_THRESHOLD &&
+      !referrerData.reward_given
+    ) {
+      markRewardGiven(referredBy);
+      try {
+        await ctx.telegram.sendMessage(
+          referredBy,
+          `🏆 Ajoyib! Siz ${REWARD_THRESHOLD} ta do'stingizni taklif qildingiz.\n` +
+            `Sizga maxsus bonus/chegirma taqdim etiladi. Administrator siz bilan tez orada bog'lanadi!`,
+        );
+      } catch (e) {}
+    }
+  }
+}
+
+// Foydalanuvchi kanalga hali qo'shilmagan holatda referal kodni vaqtincha saqlab turish uchun
+const pendingPayload = new Map();
+
 // ---------- /start komandasi ----------
 
 bot.start(async (ctx) => {
@@ -53,53 +135,19 @@ bot.start(async (ctx) => {
   const firstName = ctx.from.first_name;
   const payload = ctx.startPayload; // referal kod (taklif qilgan userning ID si)
 
-  let user = getUser(telegramId);
+  const subscribed = await isSubscribed(ctx, telegramId);
 
-  if (!user) {
-    let referredBy = null;
-
-    // Agar referal orqali kirgan bo'lsa va o'zini o'zi taklif qilmagan bo'lsa
-    if (payload && !isNaN(Number(payload)) && Number(payload) !== telegramId) {
-      const referrer = getUser(Number(payload));
-      if (referrer) {
-        referredBy = Number(payload);
-      }
-    }
-
-    createUser({ telegramId, username, firstName, referredBy });
-
-    if (referredBy) {
-      incrementReferralCount(referredBy);
-      logReferralEvent(referredBy, telegramId);
-
-      // Taklif qilgan odamga xabar yuborish
-      const referrerData = getUser(referredBy);
-      try {
-        await ctx.telegram.sendMessage(
-          referredBy,
-          `🎉 Tabriklaymiz! Sizning havolangiz orqali yangi o'quvchi qo'shildi.\n` +
-            `Jami takliflaringiz: ${referrerData.referral_count}`,
-        );
-      } catch (e) {
-        // Foydalanuvchi botni bloklagan bo'lishi mumkin — e'tiborsiz qoldiramiz
-      }
-
-      // Bonus chegarasiga yetganini tekshirish
-      if (
-        referrerData.referral_count >= REWARD_THRESHOLD &&
-        !referrerData.reward_given
-      ) {
-        markRewardGiven(referredBy);
-        try {
-          await ctx.telegram.sendMessage(
-            referredBy,
-            `🏆 Ajoyib! Siz ${REWARD_THRESHOLD} ta do'stingizni taklif qildingiz.\n` +
-              `Sizga maxsus bonus/chegirma taqdim etiladi. Administrator siz bilan tez orada bog'lanadi!`,
-          );
-        } catch (e) {}
-      }
-    }
+  if (!subscribed) {
+    // Referal ma'lumotini vaqtincha eslab qolamiz (session o'rniga oddiy global obyekt)
+    pendingPayload.set(telegramId, payload);
+    return ctx.reply(
+      `Assalomu alaykum, ${firstName || "aziz do'stimiz"}! 👋\n\n` +
+        `Botdan foydalanish uchun avval bizning kanalimizga qo'shiling, so'ng "✅ Tekshirish" tugmasini bosing.`,
+      subscribeKeyboard(),
+    );
   }
+
+  await registerUserIfNew(ctx, telegramId, username, firstName, payload);
 
   await ctx.reply(
     `Assalomu alaykum, ${firstName || "aziz do'stimiz"}! 👋\n\n` +
@@ -107,6 +155,33 @@ bot.start(async (ctx) => {
       `Do'stlaringizni taklif qiling va bonuslarga ega bo'ling!`,
     mainMenu(),
   );
+});
+
+// Foydalanuvchi "✅ Tekshirish" tugmasini bosganda
+bot.action("check_sub", async (ctx) => {
+  const telegramId = ctx.from.id;
+  const username = ctx.from.username;
+  const firstName = ctx.from.first_name;
+  const payload = pendingPayload.get(telegramId);
+
+  const subscribed = await isSubscribed(ctx, telegramId);
+
+  if (!subscribed) {
+    return ctx.answerCbQuery(
+      "❌ Siz hali kanalga qo'shilmadingiz. Iltimos, avval qo'shiling.",
+      { show_alert: true },
+    );
+  }
+
+  pendingPayload.delete(telegramId);
+  await registerUserIfNew(ctx, telegramId, username, firstName, payload);
+  await ctx.answerCbQuery("✅ Rahmat! Obuna tasdiqlandi.");
+  await ctx.editMessageText(
+    `Rahmat! Kanalga muvaffaqiyatli qo'shildingiz. 🎉\n\n` +
+      `Bizning o'quv markazimizga xush kelibsiz.\n` +
+      `Do'stlaringizni taklif qiling va bonuslarga ega bo'ling!`,
+  );
+  await ctx.reply("Quyidagi menyudan foydalaning:", mainMenu());
 });
 
 // ---------- Referal havola ----------
@@ -175,9 +250,17 @@ bot.command("stats", (ctx) => {
   );
 });
 
-bot.launch().then(() => {
-  console.log("Bot muvaffaqiyatli ishga tushdi ✅");
-});
+console.log("Bot ishga tushirilmoqda, biroz kuting...");
+
+bot
+  .launch()
+  .then(() => {
+    console.log("Bot muvaffaqiyatli ishga tushdi ✅");
+  })
+  .catch((err) => {
+    console.error("XATOLIK: Bot ishga tushmadi ❌");
+    console.error(err.message || err);
+  });
 
 process.once("SIGINT", () => bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot.stop("SIGTERM"));
