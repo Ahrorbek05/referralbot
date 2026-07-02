@@ -165,6 +165,13 @@ function getStats() {
   return { totalUsers, totalReferrals, totalRewarded };
 }
 
+// Barcha foydalanuvchilar, referallar va statistikani o'chirib, botni "0" holatga qaytaradi.
+// DIQQAT: sozlamalar (kanallar, matn, chegara, maxfiy kanal) saqlanib qoladi.
+function resetAllData() {
+  db.prepare("DELETE FROM referral_events").run();
+  db.prepare("DELETE FROM users").run();
+}
+
 module.exports = {
   db,
   getUser,
@@ -176,6 +183,7 @@ module.exports = {
   getTopReferrers,
   getAllUserIds,
   getStats,
+  resetAllData,
   getSetting,
   setSetting,
   getRequiredChannels,

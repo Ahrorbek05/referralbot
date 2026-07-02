@@ -10,6 +10,7 @@ const {
   getTopReferrers,
   getAllUserIds,
   getStats,
+  resetAllData,
   getSetting,
   setSetting,
   getRequiredChannels,
@@ -324,6 +325,7 @@ function adminMenu() {
     [Markup.button.callback("🏆 Reyting", "adm_rating")],
     [Markup.button.callback("📣 Broadcast", "adm_broadcast")],
     [Markup.button.callback("➕➖ Referal sozlash", "adm_adjust_referral")],
+    [Markup.button.callback("🗑 Barcha ma'lumotlarni tozalash", "adm_reset")],
   ]);
 }
 
@@ -459,6 +461,34 @@ bot.action("adm_adjust_referral", (ctx) => {
     .catch(() => {});
 });
 
+// ---- Barcha ma'lumotlarni tozalash (tasdiqlash bilan) ----
+bot.action("adm_reset", (ctx) => {
+  if (!isAdmin(ctx.from.id)) return;
+  ctx
+    .editMessageText(
+      `⚠️ DIQQAT!\n\n` +
+        `Bu amal barcha foydalanuvchilar, referallar va statistikani BUTUNLAY o'chiradi.\n` +
+        `Sozlamalar (kanallar, matn, chegara, maxfiy kanal) saqlanib qoladi.\n\n` +
+        `Bu amalni ortga qaytarib bo'lmaydi. Davom etasizmi?`,
+      Markup.inlineKeyboard([
+        [Markup.button.callback("✅ Ha, tozalash", "adm_reset_confirm")],
+        [Markup.button.callback("❌ Bekor qilish", "adm_back")],
+      ]),
+    )
+    .catch(() => {});
+});
+
+bot.action("adm_reset_confirm", (ctx) => {
+  if (!isAdmin(ctx.from.id)) return;
+  resetAllData();
+  ctx
+    .editMessageText(
+      "✅ Barcha foydalanuvchilar va statistika tozalandi. Bot yangi holatga qaytdi.",
+      adminMenu(),
+    )
+    .catch(() => {});
+});
+
 // ================== ADMIN MATNLI KIRITISH (state machine) ==================
 
 bot.on("text", async (ctx, next) => {
@@ -586,6 +616,19 @@ bot.on("message", async (ctx, next) => {
   }
 
   return next();
+});
+
+// Boshqa hech qanday handlerga mos kelmagan matnlar uchun eslatma
+// (masalan, foydalanuvchi /start bosmasdan to'g'ridan-to'g'ri yozsa)
+bot.on("text", (ctx) => {
+  const user = getUser(ctx.from.id);
+  if (!user) {
+    return ctx.reply(
+      `Assalomu alaykum! Bizning botimizga xush kelibsiz 👋\n\n` +
+        `Botdan foydalanish uchun /start buyrug'ini bosing.`,
+    );
+  }
+  return ctx.reply(`Iltimos, quyidagi menyudan foydalaning 👇`, mainMenu());
 });
 
 // ================== ISHGA TUSHIRISH ==================
