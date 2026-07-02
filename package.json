@@ -1,0 +1,15 @@
+{
+  "name": "referral-bot",
+  "version": "1.0.0",
+  "description": "O'quv markaz uchun referal Telegram bot",
+  "main": "bot.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "telegraf": "^4.16.3",
+    "better-sqlite3": "^11.3.0",
+    "dotenv": "^16.4.5"
+  }
+}
