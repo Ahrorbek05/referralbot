@@ -1,98 +1,70 @@
-# O'quv markaz uchun Referal Telegram Bot
+# O'quv markaz uchun Referal Telegram Bot (v2 — to'liq versiya)
 
-Node.js (Telegraf) + SQLite asosida yozilgan referal bot. O'quvchilar do'stlarini taklif qilib, bonus/chegirmaga ega bo'lishlari mumkin.
+Node.js (Telegraf) + SQLite asosida yozilgan, texnik topshiriqqa mos to'liq referal bot.
 
 ## Imkoniyatlar
 
+- 3 (yoki istalgan sondagi) majburiy obuna kanallari
 - Har bir foydalanuvchi uchun shaxsiy referal havola
-- Referal statistikasi (nechta odam taklif qilingan)
-- Belgilangan sonda avtomatik bonus xabari (masalan, 5 ta taklifdan keyin)
-- Reyting (eng faol takliflar)
-- Admin uchun `/stats` komandasi
+- Referal faqat barcha shartlar bajarilgandagina hisoblanadi
+- "📖 Loyiha haqida", "🔗 Referal havolam", "📊 Mening statistikam", "🏆 Top-10 reyting" bo'limlari
+- Referal chegarasiga yetganda avtomatik **bir martalik maxfiy kanal invite link**
+- To'liq **botning ichidagi admin panel** (`/admin`):
+  - Majburiy kanallarni o'zgartirish
+  - Loyiha matnini tahrirlash
+  - Maxfiy kanalni sozlash (xabarni forward qilish orqali)
+  - Referal chegarasini o'zgartirish
+  - Statistika va reytingni ko'rish
+  - Barcha foydalanuvchilarga xabar yuborish (Broadcast)
+  - Istalgan foydalanuvchiga referal qo'shish/ayirish
 
 ## O'rnatish
 
-### 1. Bot yaratish
-Telegramda **@BotFather** ga yozing:
-```
-/newbot
-```
-Bot nomi va username so'raladi (username `_bot` bilan tugashi kerak, masalan `academy_referral_bot`). Sizga **token** beriladi — uni saqlab qo'ying.
-
-### 2. Node.js o'rnatish
-Agar kompyuteringizda Node.js bo'lmasa, [nodejs.org](https://nodejs.org) dan o'rnating (18+ versiya tavsiya etiladi).
-
-### 3. Loyihani ko'chirish
-Ushbu papkani (`referral-bot`) o'z kompyuteringizga yoki serveringizga nusxalang, so'ng terminalda:
-
 ```bash
-cd referral-bot
 npm install
-```
-
-### 4. Sozlash (.env)
-`.env.example` faylidan nusxa oling va nomini `.env` ga o'zgartiring:
-
-```bash
 cp .env.example .env
 ```
 
-`.env` faylini oching va quyidagilarni to'ldiring:
-
-```
-BOT_TOKEN=BotFather bergan token
-BOT_USERNAME=bot_username (@ belgisiz)
-ADMIN_IDS=sizning_telegram_id_raqamingiz
-REWARD_THRESHOLD=5
-```
-
-> O'z Telegram ID raqamingizni bilish uchun **@userinfobot** ga `/start` yozing.
-
-### 5. Botni ishga tushirish
+`.env` faylini to'ldiring: `BOT_TOKEN`, `BOT_USERNAME`, `ADMIN_IDS`.
 
 ```bash
 npm start
 ```
 
-Konsolda `Bot muvaffaqiyatli ishga tushdi ✅` degan xabarni ko'rsangiz, hammasi tayyor. Telegram'da botingizga o'ting va `/start` bosing.
+## Birinchi sozlash (bot ishga tushgandan keyin)
 
-## Botdan qanday foydalaniladi
+1. Telegram'da botingizga `/admin` yozing (faqat `ADMIN_IDS`dagi userlar uchun ishlaydi)
+2. **📢 Majburiy kanallar** — 3 ta kanal username'ini vergul bilan kiriting: `@kanal1, @kanal2, @kanal3`
+   - ⚠️ Bot har uchala kanalda ham **ADMIN** bo'lishi shart, aks holda obunani tekshira olmaydi
+3. **🔒 Maxfiy kanal** — botni maxfiy kanalga ADMIN qilib qo'shing (invite link yaratish huquqi bilan), so'ng shu kanaldan istalgan xabarni botga **forward** qiling — bot avtomatik kanal ID sini saqlab oladi
+4. **📝 Loyiha matni** — "Loyiha haqida" bo'limida chiqadigan matnni kiriting
+5. **🎯 Referal chegarasi** — nechta referal kerakligini belgilang (masalan 10)
 
-1. Foydalanuvchi `/start` bosadi → bot unga shaxsiy referal havola beradi
-2. Foydalanuvchi bu havolani do'stlariga yuboradi:
-   `https://t.me/BOT_USERNAME?start=USER_ID`
-3. Yangi odam shu havola orqali botga kirsa, avtomatik ravishda taklif qilgan odamga hisoblanadi
-4. Taklif soni belgilangan chegaraga (`REWARD_THRESHOLD`) yetganda, foydalanuvchiga avtomatik bonus xabari yuboriladi
-5. Siz (administrator) o'sha foydalanuvchiga qo'lda chegirma kodi yoki bonusni taqdim etasiz (yoki buni avtomatlashtirish mumkin — quyida)
+Shu 5 qadamdan so'ng bot to'liq texnik topshiriqqa mos ishlay boshlaydi.
 
-## Serverga joylashtirish (production)
+## Ishlash tartibi (foydalanuvchi tomonidan)
 
-Botni doimiy ishlab turishi uchun quyidagilardan birini tanlang:
+1. `/start` bosadi
+2. Barcha majburiy kanallarga qo'shilishi so'raladi, "✅ Tekshirish" orqali tasdiqlaydi
+3. Asosiy menyu ochiladi
+4. "🔗 Referal havolam" orqali o'z havolasini oladi, do'stlariga yuboradi
+5. Do'sti shu havola orqali kirib, barcha shartlarni bajarsa — referal hisoblanadi va motivatsion xabar yuboriladi
+6. Chegaraga yetganda — avtomatik bir martalik maxfiy kanal linki yuboriladi
 
-- **VPS** (Timeweb, Hetzner, DigitalOcean) + `pm2` orqali botni orqa fonda ishga tushirish:
-  ```bash
-  npm install -g pm2
-  pm2 start bot.js --name referral-bot
-  pm2 save
-  ```
-- **Railway.app** yoki **Render.com** — bepul tarifda Node.js loyihalarini joylashtirish mumkin (GitHub repo ulanadi)
+## Muhim eslatmalar
 
-## Fayllar tuzilishi
+- **Har bir Telegram akkaunt faqat bir marta referal sifatida hisoblanadi** — bu `users` jadvalidagi `referred_by` maydoni orqali ta'minlangan (bir user faqat bitta marta yozilishi mumkin).
+- Majburiy kanallar **public** (username'li) bo'lishi kerak, chunki obunani tekshirish uchun `getChatMember` API'siga username yoki chat ID beriladi.
+- Maxfiy kanal **private** bo'lishi mumkin — uning ID sini forward qilish orqali olamiz, keyin bot shu ID asosida bir martalik invite linklar yaratadi.
+- Admin panel holati (`adminState`) xotirada (RAM) saqlanadi — agar bot qayta ishga tushsa (deploy, restart), yarim qolgan admin amalini qaytadan boshlash kerak bo'ladi. Sozlamalarning o'zi (kanal ro'yxati, matn va h.k.) baza (`referral.db`)da saqlanadi va yo'qolmaydi.
 
-```
-referral-bot/
-├── bot.js          # Asosiy bot logikasi
-├── db.js           # SQLite baza bilan ishlash
-├── package.json    # Bog'liqliklar
-├── .env.example    # Sozlamalar namunasi
-└── referral.db     # Baza fayli (avtomatik yaratiladi)
-```
+## Serverga joylashtirish
 
-## Keyingi qadamlar (kengaytirish uchun g'oyalar)
+Railway/Render/VPS + PM2 — avvalgi qo'llanma bo'yicha bir xil (README'ning eski versiyasidagi qadamlar amal qiladi).
 
-- Kurs sotib olish bilan bog'lash: to'lov qilganlarga avtomatik chegirma kodi generatsiya qilish
-- Ko'p darajali referal tizimi (do'stning do'sti uchun ham kichik bonus)
-- Admin panelga yangi komandalar: `/broadcast` (hammaga xabar yuborish), `/export` (userlar ro'yxatini CSV qilib olish)
-- Web-dashboard orqali statistikani vizual ko'rish
+## Kengaytirish g'oyalari
 
-Savol tug'ilsa yoki qo'shimcha funksiya (masalan, avtomatik chegirma kodi, to'lov tizimi bilan integratsiya) kerak bo'lsa — ayting, qo'shib beraman.
+- Ko'p darajali referal (do'stning do'sti uchun ham kichik bonus)
+- To'lov tizimi bilan integratsiya (Click, Payme)
+- Google Sheets bilan sinxronizatsiya
+- CSV export
